@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
-import { ethers } from "ethers";
+import {useState, useEffect} from "react";
+import {ethers, BigNumber} from "ethers";
 import TwelveAnimalsABI from "./ABI.json";
-import ErrorMessage from "./ErrorMessage";
-import TxList from "./TxList";
+import {WhiteListMerkleTree} from "./utils/merkleRoot";
 
 export default function App() {
     const [txs, setTxs] = useState([]);
@@ -29,7 +28,7 @@ export default function App() {
             );
 
             erc20.on("Transfer", (from, to, amount, event) => {
-                console.log({ from, to, amount, event });
+                console.log({from, to, amount, event});
 
                 setTxs((currentTxs) => [
                     ...currentTxs,
@@ -89,8 +88,24 @@ export default function App() {
         await provider.send("eth_requestAccounts", []);
         const signer = await provider.getSigner();
         const erc20 = new ethers.Contract(contractInfo.address, TwelveAnimalsABI, signer);
-        await erc20.transfer(data.get("recipient"), data.get("amount"));
+        // await erc20.transfer(data.get("recipient"), data.get("amount"));
+        await erc20.setMerkleRoot(new WhiteListMerkleTree().getMerkleRoot());
     };
+
+    const submitFreeMint= async (e) => {
+        e.preventDefault();
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = await provider.getSigner();
+        const contract = new ethers.Contract(contractInfo.address, TwelveAnimalsABI, signer);
+        try{
+            const res = await contract.freeMint(new WhiteListMerkleTree().getMerkleProof(await signer.getAddress()));
+            console.log(res);
+        }catch (e) {
+            console.log("error : ", e)
+        }
+
+    }
 
     return (
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -106,8 +121,10 @@ export default function App() {
                                     <input
                                         type="text"
                                         name="addr"
+                                        value="0xA5AD118813fd7444F9923EE50787860663604Bf2"
                                         className="input input-bordered block w-full focus:ring focus:outline-none"
                                         placeholder="ERC20 contract address"
+                                        readOnly={true}
                                     />
                                 </div>
                             </div>
@@ -149,7 +166,7 @@ export default function App() {
                                 Get my balance
                             </button>
                         </div>
-                        <div className="px-4">
+                        <div className="p-4">
                             <div className="overflow-x-auto">
                                 <table className="table w-full">
                                     <thead>
@@ -202,6 +219,16 @@ export default function App() {
                                     Transfer
                                 </button>
                             </footer>
+                        </form>
+                    </div>
+                    <div className="m-4 p-4">
+                        <form onSubmit={submitFreeMint}>
+                            <button
+                                type="submit"
+                                className="btn btn-primary submit-button focus:ring focus:outline-none w-full"
+                            >
+                                freeMint
+                            </button>
                         </form>
                     </div>
                 </div>
